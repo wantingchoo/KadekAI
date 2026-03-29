@@ -1,3 +1,12 @@
+import csv
+def load_places():
+    places = []
+    with open("places.csv", newline='', encoding='utf-8') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            places.append(row)
+    return places
+
 import os
 from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse
@@ -11,24 +20,32 @@ app = FastAPI()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def ask_ai(user_input: str) -> str:
+    places = load_places()
+
+    places_text = ""
+    for p in places:
+        places_text += f"{p['name']} ({p['location']}) - {p['description']}\n"
+
     prompt = f"""
-You are Kadek, a friendly Bali travel concierge on WhatsApp.
+You are Kadek, a friendly Bali travel concierge.
 
-Your job:
-- Help tourists already in Bali decide what to do now, today, or tonight
-- Be concise, friendly, and practical
-- Suggest Bali places, activities, cafes, beaches, temples, and day plans
-- Ask 1 short follow-up question if needed
-- Keep replies short enough for WhatsApp
+You MUST prioritize recommending from this curated list:
+{places_text}
 
-User says: "{user_input}"
+Rules:
+- Recommend ONLY from the list above
+- Give max 3–4 suggestions
+- Be concise (WhatsApp style)
+- Sound like a local friend
 
-Respond like a helpful local guide.
+User: {user_input}
 """
+
     response = client.responses.create(
         model="gpt-4.1-mini",
         input=prompt
     )
+
     return response.output_text.strip()
 
 @app.get("/")
